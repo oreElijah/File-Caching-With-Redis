@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
         docs_url=f"/api/{version}/docs",
         redoc_url=f"/api/{version}/redoc",
         contact={
-            "name": "random",
+            "name": "random_guyy",
             "email": "oreelijah33@gmail.com"
         }
     )

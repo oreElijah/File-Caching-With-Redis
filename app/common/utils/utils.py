@@ -6,7 +6,7 @@ import uuid
 import jwt
 
 from settings.config import Config
-from app.auth.schemas.auth_schemas import TokenData
+from January_project.app.auth.schemas.login_schema import TokenData
 
 pwd_context = CryptContext(
     schemes=["bcrypt"]

@@ -14,10 +14,3 @@ class UserResponseSchema(BaseModel):
     is_verified: bool = False
     created_at: datetime
     updated_at: datetime
-
-class RegisterResponseSchema(BaseModel):
-    user: UserResponseSchema
-
-class LoginResponseSchema(BaseModel):
-    access_token: str
-    refresh_token: str

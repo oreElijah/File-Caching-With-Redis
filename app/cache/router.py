@@ -2,12 +2,11 @@ from app.common.utils.router import VersionRouter
 from fastapi import UploadFile, status, Depends
 from fastapi.responses import FileResponse
 from fastapi.exceptions import HTTPException
+from typing import Annotated
 import json
 import time
-from sqlmodel.ext.asyncio.session import AsyncSession
 from app.common.utils.response import HTTPResponse
 from app.common.utils.dependencies import get_current_user, AccessTokenBearer
-from app.database.main import get_session
 from app.auth.models import User
 from app.cache.schemas.upload_response_schema import FileMetadataResponseModel
 from app.cache.service import FileService
@@ -22,18 +21,18 @@ cache_route = VersionRouter(
 HTTP_201_CREATED = 201
 HTTP_200_OK = 200
 
-file_service = FileService()
+# file_service = FileService()
 
 @cache_route.post("/store_file", response_model=HTTPResponse[FileMetadataResponseModel])
-async def store_file(file: UploadFile,
-                     session: AsyncSession= Depends(get_session),
+async def store_file(file_service: Annotated[FileService, Depends(FileService)],
+    file: UploadFile,
                         user: User= Depends(get_current_user)
                      ):
     user_id = user.uid
 
     metadata = await file_service.extract_metadata(file)
 
-    new_file = await file_service.store_file_metadata(session, user_id, metadata)
+    new_file = await file_service.store_file_metadata(user_id, metadata)
 
     await store_metadata(str(new_file.id), metadata)
     
@@ -47,9 +46,9 @@ async def store_file(file: UploadFile,
     response_model=HTTPResponse[FileMetadataResponseModel]
 )
 async def get_file_metadata_by_cache(
+    file_service: Annotated[FileService, Depends(FileService)],
     file_id: str,
     user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
 ):
     start = time.perf_counter()
     cached = await get_stored_metadata(file_id)
@@ -68,7 +67,7 @@ async def get_file_metadata_by_cache(
             status_code=HTTP_200_OK
         )
 
-    metadata = await file_service.get_file_by_id(session, file_id)
+    metadata = await file_service.get_file_by_id(file_id)
 
     if not metadata:
         raise HTTPException(status_code=404, detail="File not found")
@@ -92,11 +91,11 @@ async def get_file_metadata_by_cache(
 
 
 @cache_route.get("/get_file_by_db/{file_id}", response_model=HTTPResponse[FileMetadataResponseModel])
-async def get_file_metadata_by_db(file_id: str,
-                        user: User= Depends(get_current_user),
-                     session: AsyncSession= Depends(get_session)):
+async def get_file_metadata_by_db(file_service: Annotated[FileService, Depends(FileService)],
+                        file_id: str,
+                        user: User= Depends(get_current_user)):
     start = time.perf_counter()
-    file = await file_service.get_file_by_id(session, file_id)
+    file = await file_service.get_file_by_id(file_id)
     duration = time.perf_counter() - start
     print(f"DB HIT: {duration:.4f}s")
 

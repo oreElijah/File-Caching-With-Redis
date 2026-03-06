@@ -7,7 +7,7 @@ from app.common.utils.utils import decode_access_token
 from app.database.main import get_session
 from app.auth.models import User
 from app.auth.service import UserService
-from app.auth.schemas.auth_schemas import TokenData
+from January_project.app.auth.schemas.login_schema import TokenData
 
 user_service = UserService()
 

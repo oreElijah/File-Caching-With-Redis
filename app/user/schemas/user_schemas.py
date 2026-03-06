@@ -15,27 +15,8 @@ class UserModel(BaseModel):
     updated_at: datetime
     password: str
 
-
-class UserCreateModel(BaseModel):
-    username: str
-    email: EmailStr
-    firstname: str
-    lastname: str
-    password: str
-
 class UserUpdateModel(BaseModel):
     username: str | None = None
-
-class UserLoginModel(BaseModel):
-    email: EmailStr
-    password: str
-
-class ResetPasswordModel(BaseModel):
-    new_password: str
-    confirm_password: str
-
-class EmailModel(BaseModel):
-    email: str
 
 class RoleUpdateModel(BaseModel):
     role: str

@@ -17,6 +17,7 @@ class GlobalConfig(BaseSettings):
     ALLOWED_EMAIL_DOMAINS: list[str]
     REDIS_URL: str
     DOMAIN: str 
+    path: str
     # B2_KEY_ID: str
     # B2_APPLICATION_KEY: str
     # B2_BUCKET_NAME: str = "Quicklet"

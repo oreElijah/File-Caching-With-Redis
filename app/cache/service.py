@@ -1,27 +1,32 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from fastapi import UploadFile, Depends
 import uuid
-from fastapi import UploadFile
-from app.common.utils.utils import generate_hash
-from app.cache.schemas.upload_schema import FileMetadatCreateModel, FileMetadataModel
 from app.cache.model import File
+from app.database.main import get_session
+from app.common.utils.utils import generate_hash
+from settings.config import Config
+from app.cache.schemas.upload_schema import FileMetadatCreateModel, FileMetadataModel
 
 class FileService:
-    async def get_file(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession= Depends(get_session)):
+        self.session = session
+
+    async def get_file(self):
         stmt = select(File)
 
-        result = session.exec(stmt)
+        result = self.session.exec(stmt)
 
         return result.all()
     
-    async def store_file_metadata(self, session: AsyncSession, user_id: str, model: FileMetadatCreateModel) -> File:
+    async def store_file_metadata(self, user_id: str, model: FileMetadatCreateModel) -> File:
         new_model = model.model_dump()
 
         file = File(**new_model, user_id=user_id)
 
-        session.add(file)
+        self.session.add(file)
 
-        await session.commit()
+        await self.session.commit()
 
         return file
     
@@ -34,7 +39,7 @@ class FileService:
         filename = f"{uuid.uuid4()}_{file.filename}"
         
         storage_path = (
-            f"C:/Users/HomePC/Downloads/learn/January_project/app/uploads/{file.filename}"
+            f"{Config.path}{file.filename}"
         )
         with open(storage_path, "wb") as f:
             f.write(content)
