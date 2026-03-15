@@ -1,20 +1,20 @@
 {% extends "base.j2" %}
 
+{% block header %}Verify Your Email{% endblock %}
+
 {% block content %}
     <h2>Hello {{ name or "there" }},</h2>
 
     <p>
-      Thank you for creating an account with InfoGate. To complete your
+      Thank you for creating an account with Random_guyy. To complete your
       registration, please confirm your email address by clicking the button
       below.
     </p>
 
-    <p>
-      <a href="{{ verification_link }}"
-         style="display:inline-block;padding:12px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
-         Verify Your Email
+      <a href="{{ verification_link }}" style="background-color: #007BFF; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block;">
+        Verify Email
       </a>
-    </p>
+
 
     <p>
       If the button above does not work, copy and paste the link below into your browser:
@@ -28,6 +28,5 @@
 
     <p>
       Best regards,<br />
-      The InfoGate Team
     </p>
 {% endblock %}

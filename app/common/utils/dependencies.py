@@ -5,27 +5,30 @@ from fastapi.exceptions import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 from app.common.utils.utils import decode_access_token
 from app.database.main import get_session
-from app.auth.models import User
+from app.user.models import User
 from app.auth.service import UserService
-from January_project.app.auth.schemas.login_schema import TokenData
+from app.auth.schemas.login_schema import TokenData
+from typing import Optional, Annotated
 
-user_service = UserService()
 
 class TokenBearer(HTTPBearer):
     def __init__(self, auto_error: bool = True):
         super().__init__(auto_error=auto_error)
 
-    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
+    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
         creds = await super().__call__(request)
 
-        token = creds.credentials
-        if not self.token_valid:
+        token = creds.credentials # type: ignore
+
+        if not self.token_valid(token):
           ...  # raise InvalidTokenError()
-        token_data = decode_access_token(token)
+        try:
+            token_data = decode_access_token(token)
 
-        self.verify_token_data(token_data)
-
-        return token_data
+            self.verify_token_data(token_data)
+        except HTTPException as e:
+            raise e
+        return token_data # type: ignore
     
     def verify_token_data(self, token_data: dict):
         raise NotImplementedError("Please Override this method in child classes")
@@ -40,6 +43,7 @@ class AccessTokenBearer(TokenBearer):
     def verify_token_data(self, token_data: dict):
         if token_data and not token_data.get("refresh", False):
             return token_data
+        
         raise HTTPException(
             detail="Invalid Access Token",
             status_code=status.HTTP_401_UNAUTHORIZED)
@@ -54,11 +58,15 @@ class RefreshTokenBearer(TokenBearer):
             status_code=status.HTTP_401_UNAUTHORIZED
         )
 
-async def get_current_user(token_data: TokenData= Depends(AccessTokenBearer()),
-                           session: AsyncSession = Depends(get_session)):
-    user_email = token_data.get("user", {}).get("email")
+async def get_current_user( user_service: Annotated[UserService, Depends(UserService)], token_data: TokenData= Depends(AccessTokenBearer())):
+    user_email = token_data.get("user").get("email") # type: ignore
 
-    user = await user_service.get_user_by_email(session=session, email=user_email)
+    user = await user_service.get_user_by_email( email=user_email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
 
     return user
 

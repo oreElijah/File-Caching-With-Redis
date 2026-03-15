@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 class UserModel(BaseModel):
-    uid: uuid.UUID
+    id: uuid.UUID
     username: str
     email: EmailStr
     firstname: str
@@ -13,6 +13,13 @@ class UserModel(BaseModel):
     is_verified: bool = False
     created_at: datetime
     updated_at: datetime
+    password: str
+
+class UserCreateModel(BaseModel):
+    username: str
+    email: EmailStr
+    firstname: str
+    lastname: str
     password: str
 
 class UserUpdateModel(BaseModel):

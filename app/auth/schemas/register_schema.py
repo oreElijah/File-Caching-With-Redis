@@ -4,7 +4,7 @@ import uuid
 
 class UserSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    uid: uuid.UUID
+    id: uuid.UUID
     username: str
     email: EmailStr
     firstname: str
@@ -12,6 +12,7 @@ class UserSchema(BaseModel):
     is_verified: bool = False
     created_at: datetime
     updated_at: datetime
+
 class RegisterRequestSchema(BaseModel):
     username: str
     email: EmailStr
@@ -21,5 +22,5 @@ class RegisterRequestSchema(BaseModel):
 
 
 
-class RegisterResponseSchema(BaseModel):
-    user: UserSchema
+class RegisterResponseSchema(UserSchema):
+   ...

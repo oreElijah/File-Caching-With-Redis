@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Random_guyy_Cache_project Notification</title>
+    <title>{% block title %}Random_guyy_Cache_project Notification{% endblock %}</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -28,12 +28,12 @@
   </head>
   <body>
     <div class="container">
-      <h2>{{ header }}</h2>
-      {{ content }}
+      <h2>{% block header %}Notification{% endblock %}</h2>
+      {% block content %}{% endblock %}
     </div>
 
     <div class="footer">
-      &copy; {{ current_year }} Random_guyy. All rights reserved.
+      &copy; 2026 Random_guyy. All rights reserved.
     </div>
   </body>
 </html>

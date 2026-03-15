@@ -4,7 +4,7 @@ from datetime import datetime
 import uuid
 
 class File(SQLModel, table=True):
-    __tablename__="file"
+    __tablename__="file" # type: ignore
     id: uuid.UUID = Field(
          sa_column=Column(pg.UUID(),
                           primary_key=True,
@@ -15,10 +15,9 @@ class File(SQLModel, table=True):
     filename: str
     content_type: str
     size: int
-    checksum: str
     storage_path: str
     user_id: uuid.UUID = Field(
-        foreign_key="users.uid"
+        foreign_key="users.id"
     )
     uploaded_at: datetime = Field(
         sa_column=Column(

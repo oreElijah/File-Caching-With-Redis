@@ -1,22 +1,23 @@
 import os
-from typing import List
+from typing import List, Annotated
 from pathlib import Path
-from pydantic import SecretStr
+from pydantic import NameEmail
 from .processor import send_mail_task
-from settings.config import GlobalConfig
+from settings.config import Configs, get_config
+from fastapi import Depends
 from jinja2 import Environment, FileSystemLoader
 from fastapi_mail import ConnectionConfig, FastMail, MessageType, MessageSchema
 
 class MailService:
-    def __init__(self, setting: GlobalConfig):
+    def __init__(self, setting: Annotated[Configs, Depends(get_config)]):
 
         self.setting = setting
 
-        TEMPLATE_FOLDER = Path(os.path.join(setting.BASE_DIR, "app", "mail", "template"))
+        TEMPLATE_FOLDER = Path(setting.BASE_DIR)
 
         self.config = ConnectionConfig(
     MAIL_USERNAME = self.setting.MAIL_USERNAME,
-    MAIL_PASSWORD = self.setting.MAIL_PASSWORD,
+    MAIL_PASSWORD = (self.setting.MAIL_PASSWORD), # type: ignore
     MAIL_FROM = self.setting.MAIL_FROM,
     MAIL_FROM_NAME = self.setting.MAIL_FROM_NAME,
     MAIL_PORT = self.setting.MAIL_PORT,
@@ -52,16 +53,16 @@ class MailService:
     async def send_password_reset(self, first_name: str, email: str, token: str) -> None:
         password_reset_template = self.jinja_env.get_template("password_reset.j2")
 
-        password_reset_link = f"http://{self.setting.DOMAIN}/api/v1/auth/reset_password/{token}"
+        password_reset_link = f"{self.setting.DOMAIN}/api/v1/auth/reset_password/{token}"
 
         body = password_reset_template.render(header="Password Reset", name=f"{first_name}", password_reset_link=password_reset_link)
 
         message = MessageSchema(
-            recipients=[email],
+            recipients=[NameEmail(name=first_name, email=email)],
             body=body,
             subject="Password Reset",
-            from_email=self.setting.MAILER.MAILER_FROM_EMAIL,
-            from_name=self.setting.MAILER.MAILER_FROM_NAME,
+            from_email=self.setting.MAIL_FROM,
+            from_name=self.setting.MAIL_FROM_NAME,
             subtype=MessageType.html
         )
 
@@ -70,14 +71,14 @@ class MailService:
     async def send_verify_mail(self, *, first_name: str, email: str, verify_token: str) -> None:
         verify_template = self.jinja_env.get_template("verify_mail.j2")
 
-        body = verify_template.render(header="Verify Email", name=f"{first_name}", verification_link=f"http://{self.setting.DOMAIN}/api/v1/auth/verify/{verify_token}")
+        body = verify_template.render(header="Verify Email", name=f"{first_name}", verification_link=f"{self.setting.DOMAIN}/api/v1/auth/verify/{verify_token}")
 
         message = MessageSchema(
-            recipients=[email],
+            recipients=[NameEmail(name=first_name, email=email)],
             body=body,
             subject="Verify Email",
-            from_email=self.setting.MAILER.MAILER_FROM_EMAIL,
-            from_name=self.setting.MAILER.MAILER_FROM_NAME,
+            from_email=self.setting.MAIL_FROM,
+            from_name=self.setting.MAIL_FROM_NAME,
             subtype=MessageType.html
         )
 

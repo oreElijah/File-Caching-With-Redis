@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.cache.router import cache_route
+from app.file.router import cache_route
 from app.auth.router import auth_router
+from app.user.router import user_router
 from app.database.main import init_db
 
 @asynccontextmanager
 async def life_span(app: FastAPI):
     print("starting server")
-    await init_db()
+    await init_db() # type: ignore
     yield
     print("Stopping server")
 
@@ -16,6 +17,7 @@ version = "v1"
 def register_routers(app: FastAPI):
     app.include_router(auth_router)
     app.include_router(cache_route)
+    app.include_router(user_router)
 
 
 def create_app() -> FastAPI:

@@ -6,7 +6,7 @@ import uuid
 
 class UserResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    uid: uuid.UUID
+    id: uuid.UUID
     username: str
     email: EmailStr
     firstname: str

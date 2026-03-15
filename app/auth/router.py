@@ -1,21 +1,18 @@
 from fastapi import Depends, status, BackgroundTasks, UploadFile, File
 from fastapi.exceptions import HTTPException
-from datetime import timedelta
-from typing import List
-from settings.config import Config
-from app.auth.models import User
 from app.auth.service import AuthService
 from typing import Annotated
+from app.user.service import UserService
+from app.mail.service import MailService
 from app.redis.main import add_jti_to_blocklist
 from app.common.utils.router import VersionRouter
-from app.user.service import UserService
 from app.common.utils.response import HTTPResponse
-from app.common.utils.dependencies import get_current_user, RoleChecker, AccessTokenBearer, RefreshTokenBearer
+from app.auth.schemas.reset_password_schema import ResetPasswordRequestSchema
 from app.auth.schemas.forgot_password_schema import ForgotPasswordRequestSchema
 from app.auth.schemas.login_schema import LoginResponseSchema, LoginRequestSchema
 from app.auth.schemas.register_schema import RegisterRequestSchema, RegisterResponseSchema
-from app.common.utils.utils import create_access_token, create_url_safe_token, decode_url_safe_token, verify_password, generate_password_hash
-from January_project.app.auth.schemas.login_schema import UserCreateModel, UserLoginModel, UserUpdateModel, ResetPasswordModel, EmailModel
+from app.common.utils.dependencies import get_current_user, RoleChecker, AccessTokenBearer, RefreshTokenBearer
+from app.common.utils.utils import create_url_safe_token, decode_url_safe_token, generate_password_hash, create_access_token
 
 auth_router = VersionRouter(
     version="1",
@@ -24,59 +21,64 @@ auth_router = VersionRouter(
 )
 
 @auth_router.post("/register", response_model=HTTPResponse[RegisterResponseSchema], status_code=status.HTTP_201_CREATED)
-async def create_user(auth_service: Annotated[AuthService, Depends(AuthService)],
-    user_model: RegisterRequestSchema
+async def create_user(
+                      user_model: RegisterRequestSchema,
+                      auth_service: Annotated[AuthService, Depends(AuthService)],
+                      mail_service: Annotated[MailService, Depends(MailService)],
+                      user_service: Annotated[UserService, Depends(UserService)],
+                      background_tasks: BackgroundTasks,
                       ):
-    user = await auth_service.register(user_model)
+    user_response = await auth_service.register(user_model, mail_service, user_service)
+
+    token = create_url_safe_token({"email": user_model.email}) # type: ignore
+    background_tasks.add_task(mail_service.send_verify_mail, first_name=user_model.firstname, email=user_model.email, verify_token=token) # type: ignore
 
     return HTTPResponse(
             message="User registered successfully. Please check your email to verify your account.",
-            data=RegisterResponseSchema(user=user),
+            data=user_response,
             status_code=status.HTTP_201_CREATED
         )
     
 @auth_router.get("/verify/{token}", response_model=HTTPResponse[RegisterResponseSchema])
-async def verify_email(auth_service: Annotated[AuthService, Depends(AuthService)],token: str):
+async def verify_email(user_service: Annotated[UserService, Depends(UserService)],token: str):
     token_data = decode_url_safe_token(token)
 
-    email = token_data.get("email")
-    user = await auth_service.get_user_by_email(email)
-    if user is not None:
-        print(user)
-        await auth_service.update_user(user, {"is_verified": True})
-        return HTTPResponse(
-            message="Email verified successfully",
-            data=user,
-            status_code=status.HTTP_200_OK
-        )
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Invalid token or user does not exist"
+    email = str(token_data.get("email"))
+    user = await user_service.get_user_by_email(email)
+
+    await user_service.update_user(user, {"is_verified": True}) # type: ignore
+    return HTTPResponse(
+        message="Email verified successfully",
+        data=user,
+        status_code=status.HTTP_200_OK
     )
 
 @auth_router.post("/login", response_model=HTTPResponse[LoginResponseSchema])
-async def login_user(auth_service: Annotated[AuthService, Depends(AuthService)],login_schema: LoginRequestSchema):
-    user = await auth_service.login(login_schema)
+async def login_user(auth_service: Annotated[AuthService, Depends(AuthService)], user_service: Annotated[UserService, Depends(UserService)], login_schema: LoginRequestSchema):
+    result = await auth_service.login(login_schema, user_service)
 
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User with this email does not exist"
-        )
-    else:
-
-        return HTTPResponse(
+    return HTTPResponse(
                 message="Login successful",
-                data=LoginResponseSchema(
-                    access_token=user.access_token,
-                    refresh_token=user.refresh_token
-                ),
+                data=result,
                 status_code=status.HTTP_200_OK
             )
     
 @auth_router.post("/forgot_password")
-async def forgot_password(auth_service: Annotated[AuthService, Depends(AuthService)], model: ForgotPasswordRequestSchema):
-    user = await auth_service.ForgotPassword(model)
+async def forgot_password(
+                          model: ForgotPasswordRequestSchema,    
+                          auth_service: Annotated[AuthService, Depends(AuthService)],
+                          mail_service: Annotated[MailService, Depends(MailService)],
+                          user_service: Annotated[UserService, Depends(UserService)],
+                          background_tasks: BackgroundTasks,
+                           ):
+    user = await auth_service.forgot_password(model, mail_service, user_service)
+
+    token = create_url_safe_token({"email": model.email})
+
+    background_tasks.add_task(mail_service.send_password_reset,
+                               first_name=user.firstname,
+                                 email=user.email,
+                                   token=token)
 
     return HTTPResponse(
             message="Check email to reset your password",
@@ -85,10 +87,10 @@ async def forgot_password(auth_service: Annotated[AuthService, Depends(AuthServi
         )
     
 @auth_router.post("/reset_password/{token}")
-async def reset_password(user_service: Annotated[UserService, Depends(UserService)],token: str, model: ResetPasswordModel):
+async def reset_password(user_service: Annotated[UserService, Depends(UserService)],token: str, model: ResetPasswordRequestSchema):
     token_data = decode_url_safe_token(token)
 
-    email = token_data.get("email")
+    email = str(token_data.get("email"))
     user = await user_service.get_user_by_email(email)
     if user is not None:
         hashed_password = generate_password_hash(model.new_password)
@@ -105,7 +107,7 @@ async def reset_password(user_service: Annotated[UserService, Depends(UserServic
 
 @auth_router.get("/logout")
 async def logout_user(token_data: dict= Depends(AccessTokenBearer())):
-    jti = token_data.get("jti")
+    jti = str(token_data.get("jti"))
     await add_jti_to_blocklist(jti)
 
     return HTTPResponse(
@@ -117,11 +119,12 @@ async def logout_user(token_data: dict= Depends(AccessTokenBearer())):
 @auth_router.post("/refresh")
 async def refresh_token(token_detail: dict= Depends(RefreshTokenBearer())):
     if token_detail.get("refresh"):
+        user = token_detail.get("user")
         new_access_token = create_access_token(
             user_data={
-                "id": token_detail.get("id"),
-                "email": token_detail.get("email"),
-                "role": token_detail.get("role")
+                "id": user["id"], # type: ignore
+                "email": user.get("email"), # type: ignore
+                "role": user.get("role") # type: ignore
             }
         )
         return HTTPResponse(

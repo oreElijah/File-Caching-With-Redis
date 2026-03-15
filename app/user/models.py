@@ -5,8 +5,8 @@ from typing import Optional
 import uuid
 
 class User(SQLModel, table=True):
-    __tablename__ = "users"
-    uid: uuid.UUID = Field(
+    __tablename__ = "users" # type: ignore
+    id: uuid.UUID = Field(
          sa_column=Column(pg.UUID(),
                           primary_key=True,
                          default=uuid.uuid4,
@@ -32,7 +32,7 @@ class User(SQLModel, table=True):
         default=datetime.now
         )
     )
-    password_hash: str
+    password: str
 
     def __repr__(self):
         return f"<User> {self.username}"
